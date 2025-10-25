@@ -1,0 +1,5 @@
+{
+  "name": "FinRecon - Transaction Reconciliation & Dispute Management",
+  "description": "An enterprise web application for Transaction Reconciliation and Dispute Management for Indian banks. It supports all major payment channels and uses dummy data to simulate transaction volumes, values, and reconciliation outcomes.",
+  "requestFramePermissions": []
+}
