@@ -1,8 +1,8 @@
-
-import { DashboardIcon, FileUploadIcon, JobMonitorIcon, ReportsIcon, DisputeIcon, AuditLogIcon, UserIcon, AdminIcon, GLTallyIcon, ReconHubIcon } from './components/Icons';
+import { MyWorkIcon, DashboardIcon, FileUploadIcon, ReportsIcon, DisputeIcon, AuditLogIcon, UserIcon, AdminIcon, GLTallyIcon, ReconHubIcon } from './components/Icons';
 import type { Page } from './types';
 
 export const NAV_ITEMS: Page[] = [
+  { id: 'my-work', title: 'My Work', icon: MyWorkIcon },
   { id: 'dashboard', title: 'Command Center', icon: DashboardIcon },
   { id: 'ingestion-hub', title: 'File Ingestion Hub', icon: FileUploadIcon },
   { id: 'recon-hub', title: 'Reconciliation Hub', icon: ReconHubIcon },

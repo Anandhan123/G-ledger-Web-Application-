@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface CardProps {
@@ -9,7 +8,6 @@ interface CardProps {
 
 export const Card: React.FC<CardProps> = ({ children, className = '', onClick }) => {
   return (
-    // FIX: Added onClick handler to the div element.
     <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden p-6 ${className}`} onClick={onClick}>
       {children}
     </div>

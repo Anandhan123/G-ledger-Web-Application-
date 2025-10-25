@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardTitle } from '../ui/Card';
 import { DataTable } from '../ui/DataTable';
 import { jobMonitorData, reconRulesData, systemConfigData, unmatchedTransactionsData, automationRulesData, usersData } from '../../data/dummyData';
-import type { Job, ReconRule, UnmatchedTransaction, AutomationRule, RuleCondition, RuleAction, AppNotification, RuleConditionField, RuleConditionOperator, RuleActionType, JobErrorDetail, User } from '../../types';
+import type { Job, ReconRule, ReconRuleCriterion, MatchingField, UnmatchedTransaction, AutomationRule, RuleCondition, RuleAction, AppNotification, RuleConditionField, RuleConditionOperator, RuleActionType, JobErrorDetail, User } from '../../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const StatusBadge: React.FC<{ status: Job['status'] }> = ({ status }) => {
@@ -426,6 +426,103 @@ const JobErrorDetailsModal: React.FC<{ job: Job; onClose: () => void; }> = ({ jo
     );
 };
 
+const ReconRuleEditor: React.FC<{
+    rule: ReconRule;
+    onSave: (rule: ReconRule) => void;
+    onClose: () => void;
+}> = ({ rule, onSave, onClose }) => {
+    const [currentRule, setCurrentRule] = useState<ReconRule>(JSON.parse(JSON.stringify(rule)));
+    
+    const inputClasses = "block w-full text-sm border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white";
+
+    const matchingFields: { value: MatchingField; label: string; tolerance?: ('absolute' | 'percentage' | 'days' | 'seconds')[] }[] = [
+        { value: 'transaction_id', label: 'Transaction ID' },
+        { value: 'utr', label: 'UTR' },
+        { value: 'rrn', label: 'RRN' },
+        { value: 'card_number', label: 'Card Number' },
+        { value: 'terminal_id', label: 'Terminal ID' },
+        { value: 'amount', label: 'Amount', tolerance: ['absolute', 'percentage'] },
+        { value: 'date', label: 'Date/Time', tolerance: ['seconds', 'days'] },
+    ];
+
+    const handleFieldChange = (key: keyof ReconRule, value: any) => {
+        setCurrentRule(prev => ({ ...prev, [key]: value }));
+    };
+    
+    const handleCriterionChange = (index: number, field: keyof ReconRuleCriterion, value: any) => {
+        const newCriteria = [...currentRule.criteria];
+        const criterion = { ...newCriteria[index], [field]: value };
+        
+        // Reset tolerance if field changes
+        if(field === 'field') {
+            criterion.tolerance_type = undefined;
+            criterion.tolerance_value = undefined;
+        }
+        
+        newCriteria[index] = criterion;
+        setCurrentRule(prev => ({ ...prev, criteria: newCriteria }));
+    };
+
+    const addCriterion = () => {
+        const newCriterion: ReconRuleCriterion = { id: `c${Date.now()}`, field: 'amount' };
+        setCurrentRule(prev => ({ ...prev, criteria: [...prev.criteria, newCriterion] }));
+    };
+    
+    const removeCriterion = (index: number) => {
+        setCurrentRule(prev => ({ ...prev, criteria: prev.criteria.filter((_, i) => i !== index) }));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <header className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700"><h2 className="text-xl font-semibold">{(currentRule.id.startsWith('new') ? 'Create' : 'Edit')} Reconciliation Rule</h2></header>
+                <main className="flex-1 p-6 space-y-4 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="text-sm font-medium">Rule Name</label><input type="text" value={currentRule.name} onChange={e => handleFieldChange('name', e.target.value)} className={inputClasses} /></div>
+                        <div><label className="text-sm font-medium">Channel</label><select value={currentRule.channel} onChange={e => handleFieldChange('channel', e.target.value)} className={inputClasses}>{systemConfigData.supported_channels.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                    </div>
+                    <div><label className="text-sm font-medium">Description</label><textarea value={currentRule.description} onChange={e => handleFieldChange('description', e.target.value)} rows={2} className={inputClasses}></textarea></div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div><label className="text-sm font-medium">Priority</label><input type="number" value={currentRule.priority} onChange={e => handleFieldChange('priority', parseInt(e.target.value))} className={inputClasses} /></div>
+                         <div className="flex items-center space-x-2 pt-5"><input type="checkbox" id="is-active-toggle" checked={currentRule.isActive} onChange={e => handleFieldChange('isActive', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" /><label htmlFor="is-active-toggle" className="text-sm font-medium">Rule is Active</label></div>
+                    </div>
+                     <div>
+                        <div className="flex justify-between items-center mt-4 mb-2"><h4 className="font-semibold">Matching Criteria</h4><button onClick={addCriterion} className="text-sm text-primary-600 font-medium">+ Add Criterion</button></div>
+                        <div className="space-y-2">
+                            {currentRule.criteria.map((crit, index) => {
+                                const fieldDef = matchingFields.find(f => f.value === crit.field);
+                                return (
+                                <div key={crit.id} className="grid grid-cols-12 gap-2 items-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                                    <select value={crit.field} onChange={e => handleCriterionChange(index, 'field', e.target.value)} className={`${inputClasses} col-span-4`}>
+                                        {matchingFields.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                    </select>
+                                    <div className="col-span-7 flex gap-2">
+                                        {fieldDef?.tolerance ? (
+                                            <>
+                                                <select value={crit.tolerance_type || ''} onChange={e => handleCriterionChange(index, 'tolerance_type', e.target.value)} className={`${inputClasses} w-1/2`}>
+                                                    <option value="">No Tolerance</option>
+                                                    {fieldDef.tolerance.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
+                                                </select>
+                                                 <input type="number" placeholder="Value" value={crit.tolerance_value || ''} disabled={!crit.tolerance_type} onChange={e => handleCriterionChange(index, 'tolerance_value', parseFloat(e.target.value))} className={`${inputClasses} w-1/2`} />
+                                            </>
+                                        ) : <p className="text-xs text-gray-500 dark:text-gray-400 pl-2">Exact match required</p>}
+                                    </div>
+                                    <button onClick={() => removeCriterion(index)} className="text-red-500 hover:text-red-700 col-span-1 text-center">✖</button>
+                                </div>
+                            )})}
+                        </div>
+                     </div>
+                </main>
+                 <footer className="flex-shrink-0 flex justify-end p-4 bg-gray-50 dark:bg-gray-800/50 border-t space-x-3">
+                    <button onClick={onClose} className="px-4 py-2 border rounded-md">Cancel</button>
+                    <button onClick={() => onSave(currentRule)} className="px-4 py-2 rounded-md text-white bg-primary-600">Save Rule</button>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
+
 export const ReconciliationHub: React.FC<{ 
     initialFilters?: Record<string, any>,
     addNotification: (notification: Omit<AppNotification, 'id'>) => void;
@@ -438,6 +535,11 @@ export const ReconciliationHub: React.FC<{
     const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
     const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
     const [selectedJobForErrors, setSelectedJobForErrors] = useState<Job | null>(null);
+
+    // New state for reconciliation rules
+    const [reconRules, setReconRules] = useState<ReconRule[]>(reconRulesData);
+    const [isReconRuleModalOpen, setIsReconRuleModalOpen] = useState(false);
+    const [editingReconRule, setEditingReconRule] = useState<ReconRule | null>(null);
 
     const kpiData = useMemo(() => {
         const completedJobs = jobs.filter(j => j.status === 'Completed');
@@ -531,6 +633,40 @@ export const ReconciliationHub: React.FC<{
         setEditingRule(null);
     };
 
+    const handleCreateReconRule = () => {
+        const newRule: ReconRule = {
+            id: `new-${Date.now()}`,
+            name: '',
+            description: '',
+            channel: systemConfigData.supported_channels[0],
+            isActive: true,
+            priority: reconRules.length + 1,
+            criteria: [],
+        };
+        setEditingReconRule(newRule);
+        setIsReconRuleModalOpen(true);
+    };
+
+    const handleEditReconRule = (rule: ReconRule) => {
+        setEditingReconRule(rule);
+        setIsReconRuleModalOpen(true);
+    };
+
+    const handleSaveReconRule = (ruleToSave: ReconRule) => {
+        let message = '';
+        if (ruleToSave.id.startsWith('new')) {
+            const newRule = { ...ruleToSave, id: `RECON_RULE_${Math.floor(1000 + Math.random() * 9000)}`};
+            setReconRules(prev => [newRule, ...prev]);
+            message = `Reconciliation rule "${newRule.name}" created.`;
+        } else {
+            setReconRules(prev => prev.map(r => r.id === ruleToSave.id ? ruleToSave : r));
+            message = `Reconciliation rule "${ruleToSave.name}" updated.`;
+        }
+        addNotification({ type: 'success', title: 'Rule Saved', message });
+        setIsReconRuleModalOpen(false);
+        setEditingReconRule(null);
+    };
+
 
     const columns = [
         { header: 'Job ID', accessor: 'job_id' as keyof Job, render: (item: Job) => <span className="font-medium">{item.job_id}</span> },
@@ -588,6 +724,32 @@ export const ReconciliationHub: React.FC<{
                 <DataTable columns={columns} data={jobs} />
             </Card>
 
+             <Card>
+                <div className="flex justify-between items-center mb-4">
+                    <CardTitle>Reconciliation Rules</CardTitle>
+                     <button onClick={handleCreateReconRule} className="px-4 py-2 text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
+                        Create New Rule
+                    </button>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Manage the core matching logic for the auto-reconciliation engine.</p>
+                <div className="space-y-3">
+                    {reconRules.map(rule => (
+                        <div key={rule.id} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-start justify-between">
+                            <div className="flex items-start space-x-3">
+                                <span className={`mt-1.5 flex-shrink-0 w-2.5 h-2.5 rounded-full ${rule.isActive ? 'bg-green-500' : 'bg-gray-400'}`} title={rule.isActive ? 'Active' : 'Inactive'}></span>
+                                <div className="flex-1">
+                                    <p className="font-semibold text-gray-800 dark:text-white">{rule.name} <span className="ml-2 text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200 rounded-full px-2 py-0.5">{rule.channel}</span></p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{rule.description}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-4 ml-4">
+                                <button onClick={() => handleEditReconRule(rule)} className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">Edit</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+
             <Card>
                 <div className="flex justify-between items-center mb-4">
                     <CardTitle>Automation Rules Engine</CardTitle>
@@ -623,6 +785,7 @@ export const ReconciliationHub: React.FC<{
             {jobForManualMatch && <ManualMatchingWorkbench job={jobForManualMatch} onClose={() => setJobForManualMatch(null)} />}
             {selectedJobForDetails && <JobDetailPanel job={selectedJobForDetails} onClose={() => setSelectedJobForDetails(null)} onOpenMatcher={setJobForManualMatch} onViewErrors={handleViewErrorDetails} />}
             {isRuleModalOpen && editingRule && <AutomationRuleEditor rule={editingRule} onSave={handleSaveRule} onClose={() => { setIsRuleModalOpen(false); setEditingRule(null); }} assignableUsers={assignableUsers} />}
+            {isReconRuleModalOpen && editingReconRule && <ReconRuleEditor rule={editingReconRule} onSave={handleSaveReconRule} onClose={() => { setIsReconRuleModalOpen(false); setEditingReconRule(null); }} />}
             {isErrorModalOpen && selectedJobForErrors && (
                 <JobErrorDetailsModal 
                     job={selectedJobForErrors} 

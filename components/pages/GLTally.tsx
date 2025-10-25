@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardTitle } from '../ui/Card';
 import { DataTable } from '../ui/DataTable';
@@ -15,25 +14,96 @@ const AdjustmentStatusBadge: React.FC<{ status: ManualAdjustment['status'] }> = 
     return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
 };
 
-// FIX: Added initialFilters prop to allow for drill-down functionality from the dashboard.
+const AdjustmentModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (adjustment: Omit<ManualAdjustment, 'id' | 'status' | 'created_by' | 'created_at'>) => void;
+    initialAmount?: number;
+    initialAccount?: string;
+}> = ({ isOpen, onClose, onSave, initialAmount = 0, initialAccount = '' }) => {
+    const [amount, setAmount] = useState(initialAmount);
+    const [account, setAccount] = useState(initialAccount);
+    const [justification, setJustification] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateJustification = () => {
+        setIsGenerating(true);
+        // Mock Gemini API call
+        setTimeout(() => {
+            const generatedText = `Manual adjustment entry to align GL balance with reconciliation summary for account '${account}'. A difference of ₹${Math.abs(amount)} was observed and this entry serves to correct the discrepancy.`;
+            setJustification(generatedText);
+            setIsGenerating(false);
+        }, 1000);
+    };
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onSave({
+            adjustment_account: account,
+            amount: amount,
+            justification: justification,
+        });
+    };
+    
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg">
+                <form onSubmit={handleSubmit}>
+                    <header className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">New Manual Adjustment Entry</h2>
+                    </header>
+                    <main className="p-6 space-y-4">
+                        <div>
+                            <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Adjustment Account</label>
+                            <input type="text" name="account" id="account" value={account} onChange={e => setAccount(e.target.value)} required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                        </div>
+                        <div>
+                            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (₹)</label>
+                            <input type="number" name="amount" id="amount" step="0.01" value={amount} onChange={e => setAmount(parseFloat(e.target.value))} required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                        </div>
+                        <div>
+                            <div className="flex justify-between items-center">
+                                <label htmlFor="justification" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Justification</label>
+                                <button type="button" onClick={handleGenerateJustification} disabled={isGenerating} className="text-xs font-medium text-primary-600 hover:text-primary-800 disabled:opacity-50">
+                                    {isGenerating ? 'Generating...' : 'Generate with AI ✨'}
+                                </button>
+                            </div>
+                            <textarea name="justification" id="justification" value={justification} onChange={e => setJustification(e.target.value)} rows={4} required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                        </div>
+                    </main>
+                    <footer className="flex justify-end p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 space-x-3">
+                        <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600">Cancel</button>
+                        <button type="submit" className="px-4 py-2 text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">Submit for Approval</button>
+                    </footer>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
 export const GLTally: React.FC<{ initialFilters?: Record<string, any> }> = ({ initialFilters }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalConfig, setModalConfig] = useState<{ amount?: number; account?: string }>({});
     const [adjustments, setAdjustments] = useState<ManualAdjustment[]>(manualAdjustmentsData);
 
-    const handleCreateAdjustment = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
+    const handleCreateAdjustment = (newAdjustmentData: Omit<ManualAdjustment, 'id' | 'status' | 'created_by' | 'created_at'>) => {
         const newAdjustment: ManualAdjustment = {
             id: `ADJ${Math.floor(1000 + Math.random() * 9000)}`,
-            adjustment_account: formData.get('account') as string,
-            amount: parseFloat(formData.get('amount') as string),
-            justification: formData.get('justification') as string,
+            ...newAdjustmentData,
             status: 'Pending Approval',
             created_by: 'finance.user@bank.in',
             created_at: new Date().toISOString(),
         };
         setAdjustments(prev => [newAdjustment, ...prev]);
         setIsModalOpen(false);
+    };
+    
+    const openAdjustmentModal = (amount?: number, account?: string) => {
+        setModalConfig({ amount: amount ? -amount : 0, account });
+        setIsModalOpen(true);
     };
 
     const filteredAdjustments = useMemo(() => {
@@ -52,6 +122,11 @@ export const GLTally: React.FC<{ initialFilters?: Record<string, any> }> = ({ in
                 {item.difference.toLocaleString('en-IN')}
             </span>
         )},
+        { header: 'Actions', accessor: 'actions' as any, render: (item: GLSummary) => (
+            item.difference !== 0 ? 
+            <button onClick={() => openAdjustmentModal(item.difference, `${item.description} Suspense`)} className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Create Adjustment</button>
+            : null
+        )},
     ];
 
     const adjustmentColumns = [
@@ -66,16 +141,14 @@ export const GLTally: React.FC<{ initialFilters?: Record<string, any> }> = ({ in
     return (
         <div className="space-y-6">
             <Card>
-                <div className="flex justify-between items-center">
-                    <CardTitle>GL Tally Comparison</CardTitle>
-                </div>
+                <CardTitle>GL Tally Comparison</CardTitle>
                 <DataTable columns={glColumns} data={glSummaryData} />
             </Card>
 
             <Card>
                 <div className="flex justify-between items-center">
                     <CardTitle>Manual GL Adjustments</CardTitle>
-                    <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <button onClick={() => openAdjustmentModal()} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         Create New Adjustment
                     </button>
                 </div>
@@ -85,35 +158,13 @@ export const GLTally: React.FC<{ initialFilters?: Record<string, any> }> = ({ in
                 <DataTable columns={adjustmentColumns} data={filteredAdjustments} />
             </Card>
 
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg">
-                        <form onSubmit={handleCreateAdjustment}>
-                            <header className="p-4 border-b border-gray-200 dark:border-gray-700">
-                                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">New Manual Adjustment Entry</h2>
-                            </header>
-                            <main className="p-6 space-y-4">
-                                <div>
-                                    <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Adjustment Account</label>
-                                    <input type="text" name="account" id="account" required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                                </div>
-                                <div>
-                                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (₹)</label>
-                                    <input type="number" name="amount" id="amount" step="0.01" required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                                </div>
-                                <div>
-                                    <label htmlFor="justification" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Justification</label>
-                                    <textarea name="justification" id="justification" rows={4} required className="mt-1 block w-full pl-3 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600" />
-                                </div>
-                            </main>
-                            <footer className="flex justify-end p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 space-x-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600">Cancel</button>
-                                <button type="submit" className="px-4 py-2 text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">Submit for Approval</button>
-                            </footer>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <AdjustmentModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleCreateAdjustment}
+                initialAmount={modalConfig.amount}
+                initialAccount={modalConfig.account}
+            />
         </div>
     );
 };

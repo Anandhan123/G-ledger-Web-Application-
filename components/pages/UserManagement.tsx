@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { Card, CardTitle } from '../ui/Card';
 import { DataTable } from '../ui/DataTable';
-import { usersData } from '../../data/dummyData';
-import type { User } from '../../types';
+import { usersData, auditLogsData } from '../../data/dummyData';
+import type { User, AuditLog } from '../../types';
+import { Modal } from '../ui/Modal';
 
 const StatusBadge: React.FC<{ status: User['status'] }> = ({ status }) => {
     const baseClasses = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
@@ -14,10 +14,33 @@ const StatusBadge: React.FC<{ status: User['status'] }> = ({ status }) => {
     return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
 };
 
-export const UserManagement: React.FC = () => {
+const UserActivityModal: React.FC<{ user: User, onClose: () => void }> = ({ user, onClose }) => {
+    const userLogs = useMemo(() => auditLogsData.filter(log => log.user === user.name || log.user === user.user_id), [user]);
+    
+    const columns = [
+        { header: 'Timestamp', accessor: 'timestamp' as keyof AuditLog, render: (item: AuditLog) => new Date(item.timestamp).toLocaleString() },
+        { header: 'Module', accessor: 'module' as keyof AuditLog },
+        { header: 'Action', accessor: 'action' as keyof AuditLog },
+        { header: 'Status', accessor: 'status' as keyof AuditLog, render: (item: AuditLog) => 
+            <span className={item.status === 'Success' ? 'text-green-500' : 'text-red-500'}>
+                {item.status}
+            </span> },
+    ];
+
+    return (
+        <Modal title={`Activity for ${user.name}`} isOpen={true} onClose={onClose} size="3xl">
+            <div className="mt-4">
+                <DataTable columns={columns} data={userLogs} />
+            </div>
+        </Modal>
+    );
+}
+
+export const UserManagement: React.FC<{ onNavigate: (pageId: string, filters: Record<string, any>) => void }> = ({ onNavigate }) => {
     const [statusFilter, setStatusFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
     const [channelFilter, setChannelFilter] = useState('');
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
     
     const filteredData = useMemo(() => {
         return usersData.filter(user => {
@@ -36,9 +59,13 @@ export const UserManagement: React.FC = () => {
         { header: 'User ID', accessor: 'user_id' as keyof User },
         { header: 'Name', accessor: 'name' as keyof User },
         { header: 'Designation', accessor: 'designation' as keyof User },
-        { header: 'Assigned Channels', accessor: 'assigned_channels' as keyof User, render: (item: User) => item.assigned_channels.join(', ') },
         { header: 'Role', accessor: 'role' as keyof User },
         { header: 'Status', accessor: 'status' as keyof User, render: (item: User) => <StatusBadge status={item.status} /> },
+        { header: 'Actions', accessor: 'actions' as any, render: (item: User) => (
+            <button onClick={() => setSelectedUser(item)} className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">
+                View Activity
+            </button>
+        )},
     ];
     
     const resetFilters = () => {
@@ -83,6 +110,8 @@ export const UserManagement: React.FC = () => {
             </div>
 
             <DataTable columns={columns} data={filteredData} />
+            
+            {selectedUser && <UserActivityModal user={selectedUser} onClose={() => setSelectedUser(null)} />}
         </Card>
     );
 };

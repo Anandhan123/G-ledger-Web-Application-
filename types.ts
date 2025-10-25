@@ -31,6 +31,21 @@ export interface TransactionAnalytics {
   growth_percent: number;
 }
 
+// "My Work" Page Types
+export interface MyWorkItem {
+  id: string;
+  type: 'dispute' | 'adjustment' | 'job_failure' | 'ad_hoc';
+  title: string;
+  description: string;
+  dueDate?: string;
+  priority: 'high' | 'medium' | 'low';
+  linkTo?: string; // Optional for ad-hoc tasks
+  filters?: Record<string, any>;
+  status: 'To Do' | 'In Progress' | 'Done';
+  loggedTimeSeconds: number;
+  trackingStartTime?: number; // Timestamp when tracking started
+}
+
 // Dashboard Types
 export interface KPITrendData {
     name: string;
@@ -108,10 +123,23 @@ export interface Job {
   job_date: string;
 }
 
+export type MatchingField = 'amount' | 'transaction_id' | 'date' | 'rrn' | 'utr' | 'card_number' | 'terminal_id';
+
+export interface ReconRuleCriterion {
+    id: string;
+    field: MatchingField;
+    tolerance_type?: 'absolute' | 'percentage' | 'days' | 'seconds';
+    tolerance_value?: number;
+}
+
 export interface ReconRule {
   id: string;
   name: string;
   description: string;
+  channel: string;
+  isActive: boolean;
+  priority: number;
+  criteria: ReconRuleCriterion[];
 }
 
 export interface JobErrorDetail {

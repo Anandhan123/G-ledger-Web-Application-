@@ -1,7 +1,8 @@
 import type { 
   TransactionAnalytics, FileUploadLog, Job, ReportSummary, Dispute, AuditLog, User, SystemConfig, 
   ActionItem, FileIngestionStatus, ReconRule, GLSummary, ManualAdjustment, GeneratedFileLog, 
-  DisputeTimelineEvent, DisputeStatus, PermissionChange, DataIntegrityCheck, KPITrendData, ConnectionProfile, UnmatchedTransaction, DisputeEvidence, DisputeComment, FileFormatDefinition, AutomationRule
+  DisputeTimelineEvent, DisputeStatus, PermissionChange, DataIntegrityCheck, KPITrendData, ConnectionProfile, UnmatchedTransaction, DisputeEvidence, DisputeComment, FileFormatDefinition, AutomationRule,
+  MyWorkItem
 } from '../types';
 
 export const transactionAnalyticsData: TransactionAnalytics[] = [
@@ -34,6 +35,12 @@ export const disputesTrendData: KPITrendData[] = [
   { name: 'Day 4', value: 20 }, { name: 'Day 5', value: 19 }, { name: 'Day 6', value: 18 }, { name: 'Day 7', value: 18 }
 ];
 
+export const myWorkItemsData: MyWorkItem[] = [
+    { id: '1', type: 'dispute', title: 'DPT_UPI_893201', description: 'Duplicate debit claim for ₹500', dueDate: '2025-10-17', priority: 'high', linkTo: 'disputes', status: 'To Do', loggedTimeSeconds: 3665, trackingStartTime: undefined },
+    { id: '2', type: 'adjustment', title: 'ADJ002', description: 'ATM Cash Overage of ₹30,000 pending approval', priority: 'medium', linkTo: 'gl-tally', status: 'To Do', loggedTimeSeconds: 0, trackingStartTime: undefined },
+    { id: '3', type: 'job_failure', title: 'JOB_RUPAY_2025_10_13_05', description: 'Report Generation failed, requires investigation', priority: 'high', linkTo: 'recon-hub', status: 'In Progress', loggedTimeSeconds: 1200, trackingStartTime: Date.now() - 300000 }, // Started 5 mins ago
+    { id: '4', type: 'dispute', title: 'DPT_IMPS_246810', description: 'Credit not received by beneficiary for ₹15,000', dueDate: '2025-10-19', priority: 'medium', linkTo: 'disputes', status: 'Done', loggedTimeSeconds: 7500, trackingStartTime: undefined },
+];
 
 export const actionItemsData: ActionItem[] = [
   { id: '1', text: 'Files Failed Validation', value: '3', priority: 'high', linkTo: 'ingestion-hub' },
@@ -85,9 +92,45 @@ export const unmatchedTransactionsData: { [job_id: string]: UnmatchedTransaction
 };
 
 export const reconRulesData: ReconRule[] = [
-  { id: '1', name: 'Standard UPI Recon', description: 'Matches Amount, UTR, and Timestamp within 5 seconds.' },
-  { id: '2', name: 'High-Value IMPS Recon', description: 'Matches Amount, RRN, Account Numbers. Strict matching.' },
-  { id: '3', name: 'ATM Cash Withdrawal Recon', description: 'Matches Amount, Card number, Terminal ID, and Date.' },
+  { 
+    id: '1', 
+    name: 'Standard UPI Recon', 
+    description: 'Matches Amount, UTR, and Timestamp within 5 seconds.',
+    channel: 'UPI',
+    isActive: true,
+    priority: 1,
+    criteria: [
+        { id: 'c1', field: 'amount' },
+        { id: 'c2', field: 'utr' },
+        { id: 'c3', field: 'date', tolerance_type: 'seconds', tolerance_value: 5 }
+    ]
+  },
+  { 
+    id: '2', 
+    name: 'High-Value IMPS Recon', 
+    description: 'Matches Amount, RRN. Strict matching for high value transactions.',
+    channel: 'IMPS',
+    isActive: true,
+    priority: 1,
+    criteria: [
+        { id: 'c4', field: 'amount' },
+        { id: 'c5', field: 'rrn' },
+    ]
+  },
+  { 
+    id: '3', 
+    name: 'ATM Cash Withdrawal Recon', 
+    description: 'Matches Amount, Card number, Terminal ID, and Date. Currently inactive.',
+    channel: 'NFS/ATM',
+    isActive: false,
+    priority: 2,
+    criteria: [
+        { id: 'c6', field: 'amount' },
+        { id: 'c7', field: 'card_number' },
+        { id: 'c8', field: 'terminal_id' },
+        { id: 'c9', field: 'date' },
+    ]
+  },
 ];
 
 export const automationRulesData: AutomationRule[] = [
@@ -173,7 +216,7 @@ const disputeEvidence: DisputeEvidence[] = [
 
 const disputeComments: DisputeComment[] = [
     { id: '1', user: 'priya.sharma', timestamp: '2025-10-11T11:40:00Z', comment: 'Initial logs pulled. Looks like a potential timing issue on the acquirer side. Requesting their logs now.' },
-    { id: '2', user: 'anjali.mehta', timestamp: '2025-10-12T09:00:00Z', comment: '@priya.sharma any update from the acquirer bank?' },
+    { id: '2', user: 'anjali.mehta', timestamp: '2025-10-12T09:00:00Z', comment: '@Priya Sharma any update from the acquirer bank?' },
 ];
 
 export const disputesData: Dispute[] = [
@@ -181,8 +224,8 @@ export const disputesData: Dispute[] = [
   { "dispute_id": "DPT_ATM_112345", "channel": "NFS/ATM", "transaction_id": "TXN_ATM_0012345678", "dispute_reason": "Cash not dispensed", "raised_date": "2025-10-09", "status": "Resolved", "txn_amount": 10000.00, "resolution_deadline": "2025-10-16", branch_id: "BRN002", assigned_to: 'USR_10015', last_updated: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(), comments: [{id: '3', user: 'rohan.verma', timestamp: '2025-10-10T14:00:00Z', comment: 'Confirmed with ATM journal. Reversal processed.'}] },
   { "dispute_id": "DPT_IMPS_246810", "channel": "IMPS", "transaction_id": "TXN_IMPS_135792468", "dispute_reason": "Credit not received", "raised_date": "2025-10-12", "status": "Assigned", "txn_amount": 15000.00, "resolution_deadline": "2025-10-19", branch_id: "BRN001", assigned_to: 'USR_10016', last_updated: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() },
   { "dispute_id": "DPT_UPI_13579", "channel": "UPI", "transaction_id": "TXN_UPI_9753108642", "dispute_reason": "Incorrect amount debited", "raised_date": "2025-10-14", "status": "New", "txn_amount": 999.00, "resolution_deadline": "2025-10-21", branch_id: "BRN003", assigned_to: undefined, last_updated: new Date(Date.now() - 10 * 60 * 1000).toISOString() },
-  { "dispute_id": "DPT_RUPAY_555111", channel: "RuPay", transaction_id: "TXN_ECOM_555111", dispute_reason: "Fraudulent Transaction", raised_date: "2025-10-13", status: "Under Review", txn_amount: 5400.00, resolution_deadline: "2025-10-20", branch_id: "BRN002", assigned_to: 'USR_10015', last_updated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-  { "dispute_id": "DPT_AEPS_999888", channel: "AEPS", transaction_id: "TXN_AEPS_999888", dispute_reason: "Transaction not initiated by customer", raised_date: "2025-10-14", status: "New", txn_amount: 2000.00, resolution_deadline: "2025-10-21", branch_id: "BRN001", assigned_to: undefined, last_updated: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
+  { "dispute_id": "DPT_RUPAY_555111", channel: "RuPay", transaction_id: "TXN_ECOM_555111", dispute_reason: "Fraudulent Transaction", raised_date: "2025-10-13", status: "Under Review", txn_amount: 5400.00, "resolution_deadline": "2025-10-15", branch_id: "BRN002", assigned_to: 'USR_10015', last_updated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+  { "dispute_id": "DPT_AEPS_999888", channel: "AEPS", transaction_id: "TXN_AEPS_999888", dispute_reason: "Transaction not initiated by customer", raised_date: "2025-10-14", status: "New", txn_amount: 2000.00, "resolution_deadline": "2025-10-16", branch_id: "BRN001", assigned_to: undefined, last_updated: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
 ];
 export const disputeStatusOrder: DisputeStatus[] = ['New', 'Assigned', 'Under Review', 'Resolved'];
 
@@ -197,10 +240,11 @@ export const disputeTimelineData: { [disputeId: string]: DisputeTimelineEvent[] 
 
 export const auditLogsData: AuditLog[] = [
   { "timestamp": "2025-10-14T11:25:00Z", "user": "recon.admin@bankA.in", "channel": "RuPay", "module": "Reports & Generation", "action": "Generated Settlement Report", "status": "Success" },
-  { "timestamp": "2025-10-14T11:20:00Z", "user": "anjali.mehta@bankA.in", "channel": "UPI", "module": "Dispute Management", "action": "Assigned Dispute DPT_UPI_893201", "status": "Success" },
+  { "timestamp": "2025-10-14T11:20:00Z", "user": "Anjali Mehta", "channel": "UPI", "module": "Dispute Management", "action": "Assigned Dispute DPT_UPI_893201", "status": "Success" },
   { "timestamp": "2025-10-14T10:15:00Z", "user": "system.user", "channel": "IMPS", "module": "Reconciliation Hub", "action": "Job JOB_IMPS_2025_10_14_01 finished", "status": "Success" },
   { "timestamp": "2025-10-14T10:05:00Z", "user": "settlement.officer@bankA.in", "channel": "AEPS", "module": "File Ingestion Hub", "action": "Uploaded AEPS_SETTLEMENT_2025-09-29.xml", "status": "Failure" },
-  { "timestamp": "2025-10-13T09:30:00Z", "user": "admin@bankA.in", "channel": "N/A", "module": "User Management", "action": "Created user USR_20032", "status": "Success" },
+  { "timestamp": "2025-10-13T09:30:00Z", "user": "Admin User", "channel": "N/A", "module": "User Management", "action": "Created user USR_20032", "status": "Success" },
+  { "timestamp": "2025-10-13T15:30:00Z", "user": "Admin User", "channel": "N/A", "module": "User Management", "action": "Status for Priya Sharma changed to Inactive", "status": "Success" },
 ];
 
 export const usersData: User[] = [
@@ -218,7 +262,7 @@ export const fileFormatDefinitionsData: FileFormatDefinition[] = [
 export const systemConfigData: SystemConfig = {
   "bank_id": "BANK_001",
   "environment": "UAT",
-  "supported_channels": ["UPI", "IMPS", "AEPS", "NACH", "RuPay"],
+  "supported_channels": ["UPI", "IMPS", "AEPS", "NACH", "RuPay", "NFS/ATM"],
   "dummy_data_refresh_rate": "Every 6 hours"
 };
 

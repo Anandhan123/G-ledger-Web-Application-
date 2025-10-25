@@ -9,6 +9,7 @@ import type { ActionItem, FileIngestionStatus, Dispute, ManualAdjustment, Permis
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 type UserRole = 'operations' | 'branch' | 'auditor';
+type DateRange = '7D' | '30D' | '3M';
 
 const KPICard: React.FC<{ 
     title: string; 
@@ -94,9 +95,25 @@ const RoleSelector: React.FC<{ currentRole: UserRole, setRole: (role: UserRole) 
 };
 
 const OperationsView: React.FC<{ onDrillDown: (pageId: string, filters: Record<string, any>) => void }> = ({ onDrillDown }) => {
+    const [dateRange, setDateRange] = useState<DateRange>('7D');
+    const [briefing, setBriefing] = useState<string | null>(null);
+    const [isBriefingLoading, setIsBriefingLoading] = useState(false);
+
     const totalVolume = transactionAnalyticsData.reduce((acc, item) => acc + item.volume_mn, 0);
     const totalValue = transactionAnalyticsData.reduce((acc, item) => acc + item.value_bn, 0);
     const reconHealthData = { matched: 99.8, unmatched: 0.2 };
+
+    const handleGenerateBriefing = () => {
+        setIsBriefingLoading(true);
+        setBriefing(null);
+        // Mock Gemini API call
+        setTimeout(() => {
+            setBriefing(
+                `**Morning Briefing:** Reconciliation success rate remains high at **99.85%**, a slight improvement. However, note the **₹2.1 Cr in unmatched value**, primarily from UPI transactions. Open disputes have decreased to 18. **Focus Area:** Prioritize investigation of high-value UPI unmatched items to mitigate financial risk.`
+            );
+            setIsBriefingLoading(false);
+        }, 1500);
+    };
 
     return (
         <div className="space-y-6">
@@ -107,6 +124,20 @@ const OperationsView: React.FC<{ onDrillDown: (pageId: string, filters: Record<s
                 <KPICard title="Open Disputes" value="18" trendData={disputesTrendData} onDrillDown={() => onDrillDown('disputes', { status: ['New', 'Assigned', 'Under Review'] })} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 <Card className="lg:col-span-2">
+                    <CardTitle>Manager's AI Briefing</CardTitle>
+                     {isBriefingLoading && <div className="text-center p-8 text-gray-500">Generating briefing...</div>}
+                     {briefing && (
+                         <div className="prose prose-sm dark:prose-invert" dangerouslySetInnerHTML={{__html: briefing.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}}></div>
+                     )}
+                     {!briefing && !isBriefingLoading && (
+                         <div className="text-center p-4">
+                             <button onClick={handleGenerateBriefing} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                                Generate Daily Briefing (AI)
+                             </button>
+                         </div>
+                     )}
+                </Card>
                 <Card className="lg:col-span-1">
                     <CardTitle>Action Items</CardTitle>
                     <ul className="space-y-4">
@@ -120,21 +151,6 @@ const OperationsView: React.FC<{ onDrillDown: (pageId: string, filters: Record<s
                             </li>
                         ))}
                     </ul>
-                </Card>
-                <Card className="lg:col-span-2">
-                    <CardTitle>Reconciliation Health (Today)</CardTitle>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-sm text-gray-500 dark:text-gray-400">Total Transactions</p><p className="text-2xl font-bold text-gray-800 dark:text-gray-200">1.82 Bn</p></div>
-                        <div className="cursor-pointer" onClick={() => onDrillDown('recon-hub', { status: 'unmatched' })}><p className="text-sm text-gray-500 dark:text-gray-400">Unmatched Value</p><p className="text-2xl font-bold text-red-500">₹ 2.1 Cr</p></div>
-                     </div>
-                     <div className="w-full h-10 bg-gray-200 dark:bg-gray-700 rounded-full mt-4 flex overflow-hidden">
-                        <div className="bg-green-500 h-full" style={{ width: `${reconHealthData.matched}%` }} title={`Matched: ${reconHealthData.matched}%`}></div>
-                        <div className="bg-red-500 h-full" style={{ width: `${reconHealthData.unmatched}%` }} title={`Unmatched: ${reconHealthData.unmatched}%`}></div>
-                     </div>
-                     <div className="flex justify-between text-sm mt-2">
-                        <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>Matched ({reconHealthData.matched}%)</span>
-                        <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-red-500 mr-2"></span>Unmatched ({reconHealthData.unmatched}%)</span>
-                     </div>
                 </Card>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
